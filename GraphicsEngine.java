@@ -10,6 +10,24 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
+class MatrixMath {
+    // Multiply two matrices
+    public static float[][] multiplyMatrices(float[][] matrix1, float[][] matrix2) {
+        if (matrix1[0].length != matrix2.length) {
+            throw new IllegalArgumentException("Matrix dimensions do not match");
+        }
+        float[][] result = new float[matrix1.length][matrix2[0].length];
+        for (int i = 0; i < matrix1.length; i++) {
+            for (int j = 0; j < matrix2[0].length; j++) {
+                for (int k = 0; k < matrix1[0].length; k++) {
+                    result[i][j] += matrix1[i][k] * matrix2[k][j];
+                }
+            }
+        }
+        return result;
+    }
+}
+
 
 class Vertex {
     public float[] position; // x, y, z, w (world space)
@@ -26,7 +44,7 @@ class Vertex {
         }
         
         // Multiply the position by the transformation matrix
-        float[][] resultMatrix = multiplyMatrices(transformationMatrix, positionMatrix);
+        float[][] resultMatrix = MatrixMath.multiplyMatrices(transformationMatrix, positionMatrix);
 
         //normalize (note I dont understand why z and w are conventially normalized)
         float[] result = new float[4];
@@ -35,22 +53,6 @@ class Vertex {
         result[2] = resultMatrix[2][0];
         result[3] = resultMatrix[3][0];
 
-        return result;
-    }
-
-    // Multiply two matrices
-    public static float[][] multiplyMatrices(float[][] matrix1, float[][] matrix2) {
-        if (matrix1[0].length != matrix2.length) {
-            throw new IllegalArgumentException("Matrix dimensions do not match");
-        }
-        float[][] result = new float[matrix1.length][matrix2[0].length];
-        for (int i = 0; i < matrix1.length; i++) {
-            for (int j = 0; j < matrix2[0].length; j++) {
-                for (int k = 0; k < matrix1[0].length; k++) {
-                    result[i][j] += matrix1[i][k] * matrix2[k][j];
-                }
-            }
-        }
         return result;
     }
 }
@@ -121,8 +123,10 @@ public class GraphicsEngine {
     public static void main(String[] args) {
         // Create a window
         JFrame frame = new JFrame("3D Engine");
-        frame.setSize(800,600);
-        BufferedImage image = new BufferedImage(800, 600, BufferedImage.TYPE_INT_RGB);
+        int screenWidth = 800;
+        int screenHeight = 600;
+        frame.setSize(screenWidth, screenHeight);
+        BufferedImage image = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_RGB);
         JLabel fpsLabel = new JLabel("FPS: 0");
         JPanel panel = new JPanel() {
             @Override
@@ -260,15 +264,19 @@ public class GraphicsEngine {
 
                 //clear the image
                 // needs heavy optimization
+                // at 800 by 600
                 // fps goes from 200_000 to 150
-                // using the built in clearRect is 7000 fps, but causes flickering (maybe some form of vsync as a fix?)
+                // using the built in clearRect is 7000 fps, but causes screen tearing
+                //        vsync doesnt seem to fix this, it still has screen tearing when repainting at 1 fps
+                // the individual setRGB also causes some form of clipping on the top of the screen
+                // increasing the size of the screen to 1000 by 900 causes the fps to drop to 60-70
                 
-                // for (int j = 0; j < 800; j++) {
-                //     for (int k = 0; k < 600; k++) {
-                //         image.setRGB(j, k, 0);
-                //     }
-                // }
-                image.getGraphics().clearRect(0, 0, 800, 600);
+                for (int j = 0; j < screenHeight; j++) {
+                    for (int i = 0; i < screenWidth; i++) {
+                        image.setRGB(i, j, Color.BLACK.getRGB());
+                    }
+                }
+                // image.getGraphics().clearRect(0, 0, screenHeight, screenWidth);
 
 
 
@@ -282,6 +290,7 @@ public class GraphicsEngine {
 
                 //rotation matrix
                 // potential omptimization: only calculate the sin and cos of the rotation angles once, maybe in the camera class
+                // furthermore, only calculate the rotation matrix when the camera rotation changes, by storing in the camera class
                 float[][] rotationMatrix = {
                     {(float) Math.cos(camera.rotation[0]) * (float) Math.cos(camera.rotation[1]), (float) Math.cos(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.sin(camera.rotation[2]) - (float) Math.sin(camera.rotation[0]) * (float) Math.cos(camera.rotation[2]), (float) Math.cos(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.cos(camera.rotation[2]) + (float) Math.sin(camera.rotation[0]) * (float) Math.sin(camera.rotation[2]), 0},
                     {(float) Math.sin(camera.rotation[0]) * (float) Math.cos(camera.rotation[1]), (float) Math.sin(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.sin(camera.rotation[2]) + (float) Math.cos(camera.rotation[0]) * (float) Math.cos(camera.rotation[2]), (float) Math.sin(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.cos(camera.rotation[2]) - (float) Math.cos(camera.rotation[0]) * (float) Math.sin(camera.rotation[2]), 0},
@@ -311,8 +320,8 @@ public class GraphicsEngine {
                 
                 //multiply the matrices
                 // can be optimized by multiplying the matrices by hand once and hardcoding the cells (maybe an improvement?)
-                float[][] transformationMatrix = multiplyMatrices(perspectiveProjectionMatrix, rotationMatrix);
-                float[][] fullMatrix = multiplyMatrices(transformationMatrix, translationMatrix);
+                float[][] transformationMatrix = MatrixMath.multiplyMatrices(perspectiveProjectionMatrix, rotationMatrix);
+                float[][] fullMatrix = MatrixMath.multiplyMatrices(transformationMatrix, translationMatrix);
 
                 // get the screen space of the triangle based on this transformation matrix
                 float[][] result = tri.screenSpace(fullMatrix, camera);
@@ -338,24 +347,4 @@ public class GraphicsEngine {
 
         update.start();
     }
-
-    // Multiply two matrices
-    public static float[][] multiplyMatrices(float[][] matrix1, float[][] matrix2) {
-        if (matrix1[0].length != matrix2.length) {
-            throw new IllegalArgumentException("Matrix dimensions do not match");
-        }
-        float[][] result = new float[matrix1.length][matrix2[0].length];
-        for (int i = 0; i < matrix1.length; i++) {
-            for (int j = 0; j < matrix2[0].length; j++) {
-                for (int k = 0; k < matrix1[0].length; k++) {
-                    result[i][j] += matrix1[i][k] * matrix2[k][j];
-                }
-            }
-        }
-        return result;
-    }
-
-
-
-    
 }
