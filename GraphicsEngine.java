@@ -26,6 +26,50 @@ class MatrixMath {
         }
         return result;
     }
+    public static float[] multiplyMatrixVector(float[][] matrix, float[] vector) {
+        if (matrix[0].length != vector.length) {
+            throw new IllegalArgumentException("Matrix dimensions do not match");
+        }
+        float[] result = new float[matrix.length];
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < vector.length; j++) {
+                result[i] += matrix[i][j] * vector[j];
+            }
+        }
+        return result;
+    }
+
+    public static float[] dot(float[] vector1, float[] vector2) {
+        if (vector1.length != vector2.length) {
+            throw new IllegalArgumentException("Vector dimensions do not match");
+        }
+        float[] result = new float[vector1.length];
+        for (int i = 0; i < vector1.length; i++) {
+            result[i] = vector1[i] * vector2[i];
+        }
+        return result;
+    }
+}
+
+class QuaternionMath {
+    public static float[] multiplyQuaternions(float[] quaternion1, float[] quaternion2) {
+        float[] result = new float[4];
+        result[0] = quaternion1[0] * quaternion2[0] - quaternion1[1] * quaternion2[1] - quaternion1[2] * quaternion2[2] - quaternion1[3] * quaternion2[3];
+        result[1] = quaternion1[0] * quaternion2[1] + quaternion1[1] * quaternion2[0] + quaternion1[2] * quaternion2[3] - quaternion1[3] * quaternion2[2];
+        result[2] = quaternion1[0] * quaternion2[2] - quaternion1[1] * quaternion2[3] + quaternion1[2] * quaternion2[0] + quaternion1[3] * quaternion2[1];
+        result[3] = quaternion1[0] * quaternion2[3] + quaternion1[1] * quaternion2[2] - quaternion1[2] * quaternion2[1] + quaternion1[3] * quaternion2[0];
+        return result;
+    }
+
+    public static float[] conjugate(float[] quaternion) {
+        float[] result = new float[4];
+        result[0] = quaternion[0];
+        result[1] = -quaternion[1];
+        result[2] = -quaternion[2];
+        result[3] = -quaternion[3];
+        return result;
+    }
+
 }
 
 
@@ -86,7 +130,7 @@ class Triangle {
 
 class Camera {
     public float [] position; // x, y, z
-    public float [] rotation; // x, y, z (radians)
+    public float [] rotation; // w, x, y, z (quaternion)
     public int height; // pixels
     public int width; // pixels
     public float fov; // radians
@@ -140,7 +184,7 @@ public class GraphicsEngine {
         frame.setVisible(true);
 
         // Main camera
-        Camera camera = new Camera(new float[] {0, 0, 0}, new float[] {0, (float) Math.PI/ 4, 0}, image.getHeight(), image.getWidth(), 90);
+        Camera camera = new Camera(new float[] {0, 0, 0}, new float[] {1, 0, 0, 0}, image.getHeight(), image.getWidth(), 90);
 
         
         // Key listener adds and removes keys from the pressed keys set
@@ -168,53 +212,77 @@ public class GraphicsEngine {
         Thread movementControls = new Thread(() -> {
             while (true) {
                 float movementSpeed = 0.1f;
-                float rotationSpeed = 0.1f;
+                float rotationSpeed = (float) Math.PI / 25;
                 if (!pressedKeys.isEmpty()) {
 
-                    // Movement (only relative to the camera's y axis rotation)
+                    // Movement (only relative to the camera's y axis rotation) (quaternion rotations)
+                    // not working as intended
                     if (pressedKeys.contains(KeyEvent.VK_W)) {
-                        camera.position[2] -= movementSpeed * Math.cos(-camera.rotation[1]);
-                        camera.position[0] -= movementSpeed * Math.sin(-camera.rotation[1]);
+                        camera.position[0] += movementSpeed * (1-camera.rotation[1]);
+                        camera.position[2] += movementSpeed * (1+camera.rotation[1]);
                     }
                     if (pressedKeys.contains(KeyEvent.VK_S)) {
-                        camera.position[2] += movementSpeed * Math.cos(-camera.rotation[1]);
-                        camera.position[0] += movementSpeed * Math.sin(-camera.rotation[1]);
+                        camera.position[0] -= movementSpeed * (1-camera.rotation[1]);
+                        camera.position[2] -= movementSpeed * (1+camera.rotation[1]);
                     }
                     if (pressedKeys.contains(KeyEvent.VK_A)) {
-                        camera.position[2] += movementSpeed * Math.sin(-camera.rotation[1]);
-                        camera.position[0] -= movementSpeed * Math.cos(-camera.rotation[1]);
+                        camera.position[0] += movementSpeed * (1+camera.rotation[1]);
+                        camera.position[2] -= movementSpeed * (1+camera.rotation[1]);
                     }
                     if (pressedKeys.contains(KeyEvent.VK_D)) {
-                        camera.position[2] -= movementSpeed * Math.sin(-camera.rotation[1]);
-                        camera.position[0] += movementSpeed * Math.cos(-camera.rotation[1]);
+                        camera.position[0] -= movementSpeed * (1+camera.rotation[1]);
+                        camera.position[2] += movementSpeed * (1+camera.rotation[1]);
                     }
-                    if (pressedKeys.contains(KeyEvent.VK_R)) {
-                        camera.position[1] -= movementSpeed;
+                        
+
+                    // quaternion rotation in camera space (seems to be slightly distorted)
+                    if (pressedKeys.contains(KeyEvent.VK_RIGHT)) {
+                        float[] lookLeft = new float[] {(float)Math.cos(rotationSpeed/2), 0, (float)Math.sin(rotationSpeed/2), 0};
+                        camera.rotation = QuaternionMath.multiplyQuaternions(lookLeft, camera.rotation);
                     }
-                    if (pressedKeys.contains(KeyEvent.VK_F)) {
-                        camera.position[1] += movementSpeed;
+                    if (pressedKeys.contains(KeyEvent.VK_LEFT)) {
+                        float[] lookRight = new float[] {(float)Math.cos(-rotationSpeed/2), 0, (float)Math.sin(-rotationSpeed/2), 0};
+                        camera.rotation = QuaternionMath.multiplyQuaternions(lookRight, camera.rotation);
+                    }
+                    if (pressedKeys.contains(KeyEvent.VK_UP)) {
+                        float[] lookUp = new float[] {(float)Math.cos(rotationSpeed/2), (float)Math.sin(rotationSpeed/2), 0, 0};
+                        camera.rotation = QuaternionMath.multiplyQuaternions(lookUp, camera.rotation);
+                    }
+                    if (pressedKeys.contains(KeyEvent.VK_DOWN)) {
+                        float[] lookDown = new float[] {(float)Math.cos(-rotationSpeed/2), (float)Math.sin(-rotationSpeed/2), 0, 0};
+                        camera.rotation = QuaternionMath.multiplyQuaternions(lookDown, camera.rotation);
                     }
 
-                    // Rotation (currently not working)
-                    // it is currently in world space, not camera space
-                    // it should take into account the camera's current rotation
+                    // camera rotation in world space (not sure if this is working as intended)
                     if (pressedKeys.contains(KeyEvent.VK_I)) {
-                        camera.rotation[2] += rotationSpeed;
+                        camera.rotation[1] += rotationSpeed/Math.PI;
+                        if (camera.rotation[1] > 1) {
+                            camera.rotation[1] = -1;
+                        }
                     }
                     if (pressedKeys.contains(KeyEvent.VK_K)) {
-                        camera.rotation[2] -= rotationSpeed;
+                        camera.rotation[1] -= rotationSpeed/Math.PI;
+                        if (camera.rotation[1] < -1) {
+                            camera.rotation[1] = 1;
+                        }
                     }
                     if (pressedKeys.contains(KeyEvent.VK_J)) {
-                        camera.rotation[1] -= rotationSpeed;
+                        camera.rotation[2] += rotationSpeed/Math.PI;
+                        if (camera.rotation[2] > 1) {
+                            camera.rotation[2] = -1;
+                        }
                     }
                     if (pressedKeys.contains(KeyEvent.VK_L)) {
-                        camera.rotation[1] += rotationSpeed;
+                        camera.rotation[2] -= rotationSpeed/Math.PI;
+                        if (camera.rotation[2] < -1) {
+                            camera.rotation[2] = 1;
+                        }
                     }
-                    if (pressedKeys.contains(KeyEvent.VK_U)) {
-                        camera.rotation[0] += rotationSpeed;
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_O)) {
-                        camera.rotation[0] -= rotationSpeed;
+
+                    // Reset
+                    if (pressedKeys.contains(KeyEvent.VK_BACK_SPACE)) {
+                        camera.position = new float[] {0, 0, 0};
+                        camera.rotation = new float[] {1, 0, 0, 0};
                     }
 
                     // Debugging
@@ -222,7 +290,7 @@ public class GraphicsEngine {
                         System.out.println(camera.position[0] + " " + camera.position[1] + " " + camera.position[2]);
                     }
                     if (pressedKeys.contains(KeyEvent.VK_Y)) {
-                        System.out.println(camera.rotation[0] + " " + camera.rotation[1] + " " + camera.rotation[2]);
+                        System.out.println(camera.rotation[0] + " " + camera.rotation[1] + " " + camera.rotation[2] + " " + camera.rotation[3]);
                     }
                 }
                 try {
@@ -288,13 +356,13 @@ public class GraphicsEngine {
                     {0, 0, 0, 1}
                 };
 
-                //rotation matrix
+                //rotation matrix (quaternion)
                 // potential omptimization: only calculate the sin and cos of the rotation angles once, maybe in the camera class
                 // furthermore, only calculate the rotation matrix when the camera rotation changes, by storing in the camera class
                 float[][] rotationMatrix = {
-                    {(float) Math.cos(camera.rotation[0]) * (float) Math.cos(camera.rotation[1]), (float) Math.cos(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.sin(camera.rotation[2]) - (float) Math.sin(camera.rotation[0]) * (float) Math.cos(camera.rotation[2]), (float) Math.cos(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.cos(camera.rotation[2]) + (float) Math.sin(camera.rotation[0]) * (float) Math.sin(camera.rotation[2]), 0},
-                    {(float) Math.sin(camera.rotation[0]) * (float) Math.cos(camera.rotation[1]), (float) Math.sin(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.sin(camera.rotation[2]) + (float) Math.cos(camera.rotation[0]) * (float) Math.cos(camera.rotation[2]), (float) Math.sin(camera.rotation[0]) * (float) Math.sin(camera.rotation[1]) * (float) Math.cos(camera.rotation[2]) - (float) Math.cos(camera.rotation[0]) * (float) Math.sin(camera.rotation[2]), 0},
-                    {(float) -Math.sin(camera.rotation[1]), (float) Math.cos(camera.rotation[1]) * (float) Math.sin(camera.rotation[2]), (float) Math.cos(camera.rotation[1]) * (float) Math.cos(camera.rotation[2]), 0},
+                    {1 - 2 * camera.rotation[2] * camera.rotation[2] - 2 * camera.rotation[3] * camera.rotation[3], 2 * camera.rotation[1] * camera.rotation[2] - 2 * camera.rotation[0] * camera.rotation[3], 2 * camera.rotation[1] * camera.rotation[3] + 2 * camera.rotation[0] * camera.rotation[2], 0},
+                    {2 * camera.rotation[1] * camera.rotation[2] + 2 * camera.rotation[0] * camera.rotation[3], 1 - 2 * camera.rotation[1] * camera.rotation[1] - 2 * camera.rotation[3] * camera.rotation[3], 2 * camera.rotation[2] * camera.rotation[3] - 2 * camera.rotation[0] * camera.rotation[1], 0},
+                    {2 * camera.rotation[1] * camera.rotation[3] - 2 * camera.rotation[0] * camera.rotation[2], 2 * camera.rotation[2] * camera.rotation[3] + 2 * camera.rotation[0] * camera.rotation[1], 1 - 2 * camera.rotation[1] * camera.rotation[1] - 2 * camera.rotation[2] * camera.rotation[2], 0},
                     {0, 0, 0, 1}
                 };
 
