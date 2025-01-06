@@ -4,174 +4,351 @@ import java.awt.Graphics;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Scanner;
 import java.util.Set;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-class MatrixMath {
-    // Multiply two matrices
-    public static float[][] multiplyMatrices(float[][] matrix1, float[][] matrix2) {
-        if (matrix1[0].length != matrix2.length) {
-            throw new IllegalArgumentException("Matrix dimensions do not match");
-        }
-        float[][] result = new float[matrix1.length][matrix2[0].length];
-        for (int i = 0; i < matrix1.length; i++) {
-            for (int j = 0; j < matrix2[0].length; j++) {
-                for (int k = 0; k < matrix1[0].length; k++) {
-                    result[i][j] += matrix1[i][k] * matrix2[k][j];
+class Mat {
+    float[][] m;
+
+    public Mat(float[][] m) {
+        this.m = m;
+    }
+
+    public Mat multiply(Mat m2) {
+        float[][] result = new float[4][4];
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                result[i][j] = 0;
+                for (int k = 0; k < 4; k++) {
+                    result[i][j] += this.m[i][k] * m2.m[k][j];
                 }
             }
         }
-        return result;
+        return new Mat(result);
     }
-    public static float[] multiplyMatrixVector(float[][] matrix, float[] vector) {
-        if (matrix[0].length != vector.length) {
-            throw new IllegalArgumentException("Matrix dimensions do not match");
-        }
-        float[] result = new float[matrix.length];
-        for (int i = 0; i < matrix.length; i++) {
-            for (int j = 0; j < vector.length; j++) {
-                result[i] += matrix[i][j] * vector[j];
+
+    public Mat makeIdentity() {
+        float[][] result = new float[4][4];
+        for (int i = 0; i < 4; i++) {
+            for (int j = 0; j < 4; j++) {
+                result[i][j] = (i == j) ? 1 : 0;
             }
         }
-        return result;
-    }
-
-    public static float[] dot(float[] vector1, float[] vector2) {
-        if (vector1.length != vector2.length) {
-            throw new IllegalArgumentException("Vector dimensions do not match");
-        }
-        float[] result = new float[vector1.length];
-        for (int i = 0; i < vector1.length; i++) {
-            result[i] = vector1[i] * vector2[i];
-        }
-        return result;
+        return new Mat(result);
     }
 }
 
-class QuaternionMath {
-    public static float[] multiplyQuaternions(float[] quaternion1, float[] quaternion2) {
-        float[] result = new float[4];
-        result[0] = quaternion1[0] * quaternion2[0] - quaternion1[1] * quaternion2[1] - quaternion1[2] * quaternion2[2] - quaternion1[3] * quaternion2[3];
-        result[1] = quaternion1[0] * quaternion2[1] + quaternion1[1] * quaternion2[0] + quaternion1[2] * quaternion2[3] - quaternion1[3] * quaternion2[2];
-        result[2] = quaternion1[0] * quaternion2[2] - quaternion1[1] * quaternion2[3] + quaternion1[2] * quaternion2[0] + quaternion1[3] * quaternion2[1];
-        result[3] = quaternion1[0] * quaternion2[3] + quaternion1[1] * quaternion2[2] - quaternion1[2] * quaternion2[1] + quaternion1[3] * quaternion2[0];
-        return result;
+class Vector3D {
+    public float x, y, z, w;
+
+    public Vector3D(float x, float y, float z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.w = 1;
     }
 
-    public static float[] conjugate(float[] quaternion) {
-        float[] result = new float[4];
-        result[0] = quaternion[0];
-        result[1] = -quaternion[1];
-        result[2] = -quaternion[2];
-        result[3] = -quaternion[3];
-        return result;
+    public Vector3D(float[] position) {
+        this.x = position[0];
+        this.y = position[1];
+        this.z = position[2];
+        this.w = (position.length > 3) ? position[3] : 1;
+    }
+
+    public Vector3D(float x, float y, float z, float w) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+        this.w = w;
+    }
+
+    public Vector3D multiply(float[][] m) {
+        return new Vector3D(
+            this.x * m[0][0] + this.y * m[1][0] + this.z * m[2][0] + this.w * m[3][0],
+            this.x * m[0][1] + this.y * m[1][1] + this.z * m[2][1] + this.w * m[3][1],
+            this.x * m[0][2] + this.y * m[1][2] + this.z * m[2][2] + this.w * m[3][2],
+            this.x * m[0][3] + this.y * m[1][3] + this.z * m[2][3] + this.w * m[3][3]
+        );
+    }
+
+    public Vector3D add(Vector3D v) {
+        return new Vector3D(this.x + v.x, this.y + v.y, this.z + v.z);
+    }
+    
+    public Vector3D subtract(Vector3D v) {
+        return new Vector3D(this.x - v.x, this.y - v.y, this.z - v.z);
+    }
+
+    public Vector3D multiply(float s) {
+        return new Vector3D(this.x * s, this.y * s, this.z * s);
+    }
+
+    public Vector3D multiply(Mat m) {
+        return new Vector3D(
+            this.x * m.m[0][0] + this.y * m.m[1][0] + this.z * m.m[2][0] + this.w * m.m[3][0],
+            this.x * m.m[0][1] + this.y * m.m[1][1] + this.z * m.m[2][1] + this.w * m.m[3][1],
+            this.x * m.m[0][2] + this.y * m.m[1][2] + this.z * m.m[2][2] + this.w * m.m[3][2],
+            this.x * m.m[0][3] + this.y * m.m[1][3] + this.z * m.m[2][3] + this.w * m.m[3][3]
+        );
+    }
+
+    public Vector3D divide(float s) {
+        return new Vector3D(this.x / s, this.y / s, this.z / s);
+    }
+
+    public float dot(Vector3D v) {
+        return this.x * v.x + this.y * v.y + this.z * v.z;
+    }
+
+    public float length() {
+        return (float) Math.sqrt(dot(this));
+    }
+
+    public Vector3D normalize() {
+        return divide(length());
+    }
+
+    public Vector3D cross(Vector3D v) {
+        return new Vector3D(this.y * v.z - this.z * v.y, this.z * v.x - this.x * v.z, this.x * v.y - this.y * v.x);
+    }
+
+    public Vector3D rotate(Quaternion q) {
+        Quaternion p = new Quaternion(0, this);
+        Quaternion qConjugate = new Quaternion(q.w, -q.x, -q.y, -q.z);
+        Quaternion result = q.multiply(p).multiply(qConjugate);
+        return new Vector3D(result.x, result.y, result.z);
+    }
+}
+
+class Quaternion extends Vector3D {
+    public Quaternion(float w, float x, float y, float z) {
+        super(x, y, z, w);
+    }
+
+    public Quaternion(float w, Vector3D v) {
+        super(v.x, v.y, v.z, w);
+    }
+
+    public Quaternion(Vector3D v) {
+        super(v.x, v.y, v.z, 0);
+    }
+
+    public Quaternion multiply(Quaternion q) {
+        return new Quaternion(
+            this.w * q.w - this.x * q.x - this.y * q.y - this.z * q.z,
+            this.w * q.x + this.x * q.w + this.y * q.z - this.z * q.y,
+            this.w * q.y - this.x * q.z + this.y * q.w + this.z * q.x,
+            this.w * q.z + this.x * q.y - this.y * q.x + this.z * q.w
+        );
+    }
+
+    public Quaternion createFromAxisAngle(Vector3D axis, float angle) {
+        float sinHalfAngle = (float) Math.sin(angle / 2);
+        float cosHalfAngle = (float) Math.cos(angle / 2);
+        return new Quaternion(cosHalfAngle, axis.multiply(sinHalfAngle));
     }
 
 }
 
-
-class Vertex {
-    public float[] position; // x, y, z, w (world space)
-
-    public Vertex(float[] position) {
-        this.position = position;
-    }
-
-    public float[] getScreenSpace(float[][] transformationMatrix) {
-        // Create a 4x1 matrix with the position of the vertex
-        float[][] positionMatrix = new float[4][1];
-        for (int i = 0; i < 4; i++) {
-            positionMatrix[i][0] = position[i];
-        }
-        
-        // Multiply the position by the transformation matrix
-        float[][] resultMatrix = MatrixMath.multiplyMatrices(transformationMatrix, positionMatrix);
-
-        //normalize (note I dont understand why z and w are conventially normalized)
-        float[] result = new float[4];
-        result[0] = resultMatrix[0][0] / resultMatrix[3][0];
-        result[1] = resultMatrix[1][0] / resultMatrix[3][0];
-        result[2] = resultMatrix[2][0];
-        result[3] = resultMatrix[3][0];
-
-        return result;
-    }
-}
 
 class Triangle {
-    public Vertex[] vertices;
-    public Color color;
+    public Vector3D[] v = new Vector3D[3];
+    public Color color = Color.WHITE;
 
-    public Triangle(Vertex[] vertices, Color color) {
+    public Triangle(Vector3D v1, Vector3D v2, Vector3D v3, Color color) {
+        this.v = new Vector3D[] {v1, v2, v3};
         this.color = color;
-        this.vertices = vertices;
     }
 
-    // Convert the triangle to screen space
-    // This is done by multiplying the vertices by the transformation matrix
-    // Then converting the x and y values to screen space
-    public float[][] screenSpace(float[][] transformationMatrix, Camera camera) {
-        float[][] result = new float[3][4];
-        // convert vertices to screen space
+    public Triangle(Vector3D[] vertices, Color color) {
+        this.v = vertices;
+        this.color = color;
+    }
+
+    public Triangle(Vector3D[] vertices) {
+        this.v = vertices;
+    }
+
+    public Triangle(Vector3D v1, Vector3D v2, Vector3D v3) {
+        this.v = new Vector3D[] {v1, v2, v3};
+    }
+
+    public Triangle add(Vector3D v) {
+        Vector3D[] newVertices = new Vector3D[3];
         for (int i = 0; i < 3; i++) {
-            result[i] = vertices[i].getScreenSpace(transformationMatrix);
+            newVertices[i] = this.v[i].add(v);
         }
-        //convert to screen space
+        return new Triangle(newVertices, color);
+    }
+
+    public Triangle subtract(Vector3D v) {
+        Vector3D[] newVertices = new Vector3D[3];
         for (int i = 0; i < 3; i++) {
-            result[i][0] = (result[i][0] + 1) * camera.width / 2;
-            result[i][1] = (result[i][1] + 1) * camera.height / 2;
+            newVertices[i] = this.v[i].subtract(v);
         }
-        return result;
+        return new Triangle(newVertices, color);
+    }
+
+    public Triangle multiply(Mat m) {
+        Vector3D[] newVertices = new Vector3D[3];
+        for (int i = 0; i < 3; i++) {
+            newVertices[i] = this.v[i].multiply(m);
+        }
+        return new Triangle(newVertices, color);
+    }
+
+    public Triangle divide(float s) {
+        Vector3D[] newVertices = new Vector3D[3];
+        for (int i = 0; i < 3; i++) {
+            newVertices[i] = this.v[i].divide(s);
+        }
+        return new Triangle(newVertices, color);
+    }
+
+   
+}
+
+class Mesh {
+    public List<Triangle> triangles;
+    public Vector3D position;
+    public Quaternion rotation;
+
+    public Mesh() {
+        this.triangles = new ArrayList<>();
+        this.position = new Vector3D(0, 0, 0);
+        this.rotation = new Quaternion(1, 0, 0, 0);
+    }
+
+    public Mesh(List<Triangle> triangles, int x, int y, int z) {
+        this.triangles = triangles;
+        this.position = new Vector3D(x, y, z);
+        this.rotation = new Quaternion(1, 0, 0, 0);
+    }
+
+    public Mesh(List<Triangle> triangles, int[] position) {
+        this.triangles = triangles;
+        this.position = new Vector3D(position[0], position[1], position[2]);
+    }
+
+    public Mesh(File file) {
+        this(file, new Vector3D(0, 0, 0));
+    }
+
+    public Mesh(File file, Vector3D position) {
+        this.triangles = new ArrayList<>();
+        this.position = position;
+        List<Vector3D> vertices = new ArrayList<>();
+        try (Scanner scanner = new Scanner(file)) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                if (line.startsWith("v ")) {
+                    String[] parts = line.split(" ");
+                    float x = Float.parseFloat(parts[1]);
+                    float y = Float.parseFloat(parts[2]);
+                    float z = Float.parseFloat(parts[3]);
+                    vertices.add(new Vector3D(x, y, z));
+                } else if (line.startsWith("f ")) {
+                    String[] parts = line.split(" ");
+                    int v1 = Integer.parseInt(parts[1]) - 1;
+                    int v2 = Integer.parseInt(parts[2]) - 1;
+                    int v3 = Integer.parseInt(parts[3]) - 1;
+                    triangles.add(new Triangle(vertices.get(v1), vertices.get(v2), vertices.get(v3)));
+                }
+            }
+        } catch (Exception e) {
+            
+        }
     }
 }
 
-class Camera {
-    public float [] position; // x, y, z
-    public float [] rotation; // w, x, y, z (quaternion)
+final class Camera {
+    public Vector3D position; // x, y, z
+    public Quaternion rotation; // w, x, y, z
     public int height; // pixels
     public int width; // pixels
-    public float fov; // radians
-    public float aspectRatio;
+    public float fov; // degrees
+    public float fovRad; // radians
+    public float f; // 1/tan(fov/2)
+    public float far; // far clipping plane
+    public float near; // near clipping plane
+    public float aspectRatio; // height/width
+    public Mat perspectiveProjectionMatrix;
 
-    public Camera(float[] position, float[] rotation, int height, int width, float fov) {
+    public Mat rotationMatrix() {
+        return new Mat( new float[][] {
+            {2.0f * (rotation.w * rotation.w + rotation.x * rotation.x) - 1.0f, 2.0f * (rotation.x * rotation.y - rotation.w * rotation.z), 2.0f * (rotation.x * rotation.z + rotation.w * rotation.y), 0},
+            {2.0f * (rotation.x * rotation.y + rotation.w * rotation.z), 2.0f * (rotation.w * rotation.w + rotation.y * rotation.y) - 1.0f, 2.0f * (rotation.y * rotation.z - rotation.w * rotation.x), 0},
+            {2.0f * (rotation.x * rotation.z - rotation.w * rotation.y), 2.0f * (rotation.y * rotation.z + rotation.w * rotation.x), 2.0f * (rotation.w * rotation.w + rotation.z * rotation.z) - 1.0f, 0},
+            {0, 0, 0, 1}
+        });
+    }
+
+    public Mat translationMatrix() {
+        return new Mat(new float[][] {
+            {1, 0, 0, position.x},
+            {0, 1, 0, position.y},
+            {0, 0, 1, position.z},
+            {0, 0, 0, 1}
+        });
+    }
+
+    public void updatePerspectiveProjectionMatrix() {
+        perspectiveProjectionMatrix = new Mat(new float[][] {
+            {aspectRatio * f, 0, 0, 0},
+            {0, f, 0, 0},
+            {0, 0, far / (far - near), -far * near / (far - near)},
+            {0, 0, -1, 0}
+        });
+    }
+
+    public Vector3D scale(Vector3D v) {
+        return new Vector3D((v.x + 1) * width / 2, (v.y + 1) * height / 2, v.z);
+    }
+
+    public Triangle scale(Triangle t) {
+        return new Triangle(scale(t.v[0]), scale(t.v[1]), scale(t.v[2]));
+    }
+    
+
+    public Camera(Vector3D position, Quaternion rotation, int height, int width, float fov, float far, float near) {
         this.position = position;
         this.rotation = rotation;
         this.height = height;
         this.width = width;
-        this.fov = (float) Math.toRadians(fov);
-        this.aspectRatio = (float) height/width;
+        this.fov = fov;
+        this.fovRad = (float) Math.toRadians(fov);
+        this.aspectRatio = (float) height / (float) width;
+        this.f = 1 / (float) Math.tan(this.fovRad/2);
+        this.far = far;
+        this.near = near;
+        updatePerspectiveProjectionMatrix();
     }
 }
 
-// Unused
-class TriangleMesh {
-    public Triangle[] triangles;
-    public int[] position;
+class Screen {
+    public int width;
+    public int height;
+    public BufferedImage image;
+    public Graphics g;
+    public JFrame frame;
+    public JLabel fpsLabel;
+    public Set<Integer> keys = new HashSet<>();
 
-    public TriangleMesh(Triangle[] triangles, int x, int y, int z) {
-        this.triangles = triangles;
-        this.position = new int[] {x, y, z};
-    }
-
-    public TriangleMesh(Triangle[] triangles, int[] position) {
-        this.triangles = triangles;
-        this.position = position;
-    }
-}
-
-
-public class GraphicsEngine {
-    public static void main(String[] args) {
+    public Screen(int width, int height) {
         // Create a window
-        JFrame frame = new JFrame("3D Engine");
-        int screenWidth = 800;
-        int screenHeight = 600;
-        frame.setSize(screenWidth, screenHeight);
-        BufferedImage image = new BufferedImage(screenWidth, screenHeight, BufferedImage.TYPE_INT_RGB);
-        JLabel fpsLabel = new JLabel("FPS: 0");
+        frame = new JFrame("3D Engine");
+        this.width = width;
+        this.height = height;
+        frame.setSize(width, height);
+        image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        fpsLabel = new JLabel("FPS: 0");
         JPanel panel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -181,238 +358,234 @@ public class GraphicsEngine {
         };
         frame.getContentPane().add(panel, BorderLayout.CENTER);
         frame.getContentPane().add(fpsLabel, BorderLayout.SOUTH);
-        frame.setVisible(true);
-
-        // Main camera
-        Camera camera = new Camera(new float[] {0, 0, 0}, new float[] {1, 0, 0, 0}, image.getHeight(), image.getWidth(), 90);
-
-        
-        // Key listener adds and removes keys from the pressed keys set
-        Set<Integer> pressedKeys = new HashSet<>();
-        KeyListener keyListener = new KeyListener() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                pressedKeys.add(e.getKeyCode());
-            }
-            
-            @Override
-            public void keyReleased(KeyEvent e) {
-                pressedKeys.remove(e.getKeyCode());
-            }
-            
+        KeyListener listener = new KeyListener() {
             @Override
             public void keyTyped(KeyEvent e) {
-                
+            }
+            
+            @Override
+            public void keyPressed(KeyEvent e) {
+                keys.add(e.getKeyCode());
+            }
+
+            @Override
+            public void keyReleased(KeyEvent e) {
+                keys.remove(e.getKeyCode());
             }
         };
-        frame.addKeyListener(keyListener);
+        frame.addKeyListener(listener);
+        frame.setVisible(true);
+    }
 
-        // Thread for camera movement by checking if keys are in the pressed keys set, so it is independent of the frame rate
-        // in a thread so movement is smooth and so the movement can be paused
-        Thread movementControls = new Thread(() -> {
-            while (true) {
-                float movementSpeed = 0.1f;
-                float rotationSpeed = (float) Math.PI / 25;
-                if (!pressedKeys.isEmpty()) {
+    public void clear() {
+        for (int i = 0; i < width * height; i++) {
+            image.setRGB(i % width, i / width, 0);
+        }
+    }
 
-                    // Movement (only relative to the camera's y axis rotation) (quaternion rotations)
-                    // not working as intended
-                    if (pressedKeys.contains(KeyEvent.VK_W)) {
-                        camera.position[0] += movementSpeed * (1-camera.rotation[1]);
-                        camera.position[2] += movementSpeed * (1+camera.rotation[1]);
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_S)) {
-                        camera.position[0] -= movementSpeed * (1-camera.rotation[1]);
-                        camera.position[2] -= movementSpeed * (1+camera.rotation[1]);
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_A)) {
-                        camera.position[0] += movementSpeed * (1+camera.rotation[1]);
-                        camera.position[2] -= movementSpeed * (1+camera.rotation[1]);
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_D)) {
-                        camera.position[0] -= movementSpeed * (1+camera.rotation[1]);
-                        camera.position[2] += movementSpeed * (1+camera.rotation[1]);
-                    }
-                        
-
-                    // quaternion rotation in camera space (seems to be slightly distorted)
-                    if (pressedKeys.contains(KeyEvent.VK_RIGHT)) {
-                        float[] lookLeft = new float[] {(float)Math.cos(rotationSpeed/2), 0, (float)Math.sin(rotationSpeed/2), 0};
-                        camera.rotation = QuaternionMath.multiplyQuaternions(lookLeft, camera.rotation);
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_LEFT)) {
-                        float[] lookRight = new float[] {(float)Math.cos(-rotationSpeed/2), 0, (float)Math.sin(-rotationSpeed/2), 0};
-                        camera.rotation = QuaternionMath.multiplyQuaternions(lookRight, camera.rotation);
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_UP)) {
-                        float[] lookUp = new float[] {(float)Math.cos(rotationSpeed/2), (float)Math.sin(rotationSpeed/2), 0, 0};
-                        camera.rotation = QuaternionMath.multiplyQuaternions(lookUp, camera.rotation);
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_DOWN)) {
-                        float[] lookDown = new float[] {(float)Math.cos(-rotationSpeed/2), (float)Math.sin(-rotationSpeed/2), 0, 0};
-                        camera.rotation = QuaternionMath.multiplyQuaternions(lookDown, camera.rotation);
-                    }
-
-                    // camera rotation in world space (not sure if this is working as intended)
-                    if (pressedKeys.contains(KeyEvent.VK_I)) {
-                        camera.rotation[1] += rotationSpeed/Math.PI;
-                        if (camera.rotation[1] > 1) {
-                            camera.rotation[1] = -1;
-                        }
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_K)) {
-                        camera.rotation[1] -= rotationSpeed/Math.PI;
-                        if (camera.rotation[1] < -1) {
-                            camera.rotation[1] = 1;
-                        }
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_J)) {
-                        camera.rotation[2] += rotationSpeed/Math.PI;
-                        if (camera.rotation[2] > 1) {
-                            camera.rotation[2] = -1;
-                        }
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_L)) {
-                        camera.rotation[2] -= rotationSpeed/Math.PI;
-                        if (camera.rotation[2] < -1) {
-                            camera.rotation[2] = 1;
-                        }
-                    }
-
-                    // Reset
-                    if (pressedKeys.contains(KeyEvent.VK_BACK_SPACE)) {
-                        camera.position = new float[] {0, 0, 0};
-                        camera.rotation = new float[] {1, 0, 0, 0};
-                    }
-
-                    // Debugging
-                    if (pressedKeys.contains(KeyEvent.VK_T)) {
-                        System.out.println(camera.position[0] + " " + camera.position[1] + " " + camera.position[2]);
-                    }
-                    if (pressedKeys.contains(KeyEvent.VK_Y)) {
-                        System.out.println(camera.rotation[0] + " " + camera.rotation[1] + " " + camera.rotation[2] + " " + camera.rotation[3]);
-                    }
-                }
-                try {
-                    Thread.sleep(16);
-                } catch (InterruptedException e) {
-                    // Its fineee
+    public void clear(boolean[][] needsBlackening, boolean[][] updated) {
+        for (int i = 0; i < width; i++) {
+            for (int j = 0; j < height; j++) {
+                if (needsBlackening[i][j] && !updated[i][j]) {
+                    image.setRGB(i, j, 0);
                 }
             }
-        });
+        }
+    }
 
-        movementControls.start();
+    public void drawTriangle(float x1, float y1, float x2, float y2, float x3, float y3, Color color) {
+        g = image.getGraphics();
+        g.setColor(color);
+        g.drawLine((int) x1, (int) y1, (int) x2, (int) y2);
+        g.drawLine((int) x2, (int) y2, (int) x3, (int) y3);
+        g.drawLine((int) x3, (int) y3, (int) x1, (int) y1);
+    }
 
+    public void fillTriangle(float x1, float y1, float x2, float y2, float x3, float y3, Color color) {
+        g = image.getGraphics();
+        g.setColor(color);
+        g.fillPolygon(new int[] {(int) x1, (int) x2, (int) x3}, new int[] {(int) y1, (int) y2, (int) y3}, 3);
+    }
 
+    public void fillTriangleWithDepth(Triangle tri, float[][] depthBuffer, boolean [][] updated) {
+        g = image.getGraphics();
+        g.setColor(tri.color);
+
+        float minX = Float.POSITIVE_INFINITY;
+        float minY = Float.POSITIVE_INFINITY;
+        float maxX = Float.NEGATIVE_INFINITY;
+        float maxY = Float.NEGATIVE_INFINITY;
+
+        for (int i = 0; i < 3; i++) {
+            minX = Math.min(minX, tri.v[i].x);
+            minY = Math.min(minY, tri.v[i].y);
+            maxX = Math.max(maxX, tri.v[i].x);
+            maxY = Math.max(maxY, tri.v[i].y);
+        }
+
+        minX = Math.max(0, Math.min(width, minX));
+        minY = Math.max(0, Math.min(height, minY));
+        maxX = Math.max(0, Math.min(width, maxX));
+        maxY = Math.max(0, Math.min(height, maxY));
+
+        for (int x = (int) minX; x < maxX; x++) {
+            for (int y = (int) minY; y < maxY; y++) {
+            float w0 = ((tri.v[1].y - tri.v[2].y) * (x - tri.v[2].x) + (tri.v[2].x - tri.v[1].x) * (y - tri.v[2].y)) /
+                   ((tri.v[1].y - tri.v[2].y) * (tri.v[0].x - tri.v[2].x) + (tri.v[2].x - tri.v[1].x) * (tri.v[0].y - tri.v[2].y));
+            float w1 = ((tri.v[2].y - tri.v[0].y) * (x - tri.v[2].x) + (tri.v[0].x - tri.v[2].x) * (y - tri.v[2].y)) /
+                   ((tri.v[1].y - tri.v[2].y) * (tri.v[0].x - tri.v[2].x) + (tri.v[2].x - tri.v[1].x) * (tri.v[0].y - tri.v[2].y));
+            float w2 = 1 - w0 - w1;
+
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+                float z = w0 * tri.v[0].z + w1 * tri.v[1].z + w2 * tri.v[2].z;
+                if (z < depthBuffer[x][y]) {
+                    depthBuffer[x][y] = z;
+                    image.setRGB(x, y, tri.color.getRGB());
+                    updated[x][y] = true;
+                }
+            }
+            }
+        }
+
+    }
+
+    public void setFPS(long fps) {
+        fpsLabel.setText("FPS: " + fps);
+    }
+
+    public void repaint() {
+        frame.repaint();
+    }
+}
+
+public class GraphicsEngine {
+    private static Mesh objectMesh;
+    private static final Screen screen = new Screen(1600, 900);
+    private static Thread updateThread;
+    private static Camera camera;
+    private static final float[][] depthBuffer = new float[screen.width][screen.height];
+
+    private static void clearDepthBuffer() {
+        for (int i = 0; i < screen.width; i++) {
+            for (int j = 0; j < screen.height; j++) {
+                depthBuffer[i][j] = Float.POSITIVE_INFINITY;
+            }
+        }
+    }
+
+    public static boolean[][] update(float fElapsedTime, boolean[][] needsBlackening) {
+        clearDepthBuffer();
+        boolean[][] updated = new boolean[screen.width][screen.height];
+
+        if (screen.keys.contains(KeyEvent.VK_W)) {
+            camera.position = camera.position.add(new Vector3D(0, 0, -80.0f * fElapsedTime).rotate(camera.rotation));
+        }
+        if (screen.keys.contains(KeyEvent.VK_S)) {
+            camera.position = camera.position.add(new Vector3D(0, 0, 80.0f * fElapsedTime).rotate(camera.rotation));
+        }
+        if (screen.keys.contains(KeyEvent.VK_A)) {
+            camera.position = camera.position.add(new Vector3D(-80.0f * fElapsedTime, 0, 0).rotate(camera.rotation));
+        }
+        if (screen.keys.contains(KeyEvent.VK_D)) {
+            camera.position = camera.position.add(new Vector3D(80.0f * fElapsedTime, 0, 0).rotate(camera.rotation));
+        }
+
+        if (screen.keys.contains(KeyEvent.VK_UP)) {
+            camera.rotation = camera.rotation.createFromAxisAngle(new Vector3D(1, 0, 0), 0.001f).multiply(camera.rotation);
+        }
+        if (screen.keys.contains(KeyEvent.VK_DOWN)) {
+            camera.rotation = camera.rotation.createFromAxisAngle(new Vector3D(1, 0, 0), -0.001f).multiply(camera.rotation);
+        }
+        if (screen.keys.contains(KeyEvent.VK_LEFT)) {
+            camera.rotation = camera.rotation.createFromAxisAngle(new Vector3D(0, 1, 0), 0.001f).multiply(camera.rotation);
+        }
+        if (screen.keys.contains(KeyEvent.VK_RIGHT)) {
+            camera.rotation = camera.rotation.createFromAxisAngle(new Vector3D(0, 1, 0), -0.001f).multiply(camera.rotation);
+        }
+        camera.updatePerspectiveProjectionMatrix();
         
 
 
-        // Create a triangle for testing
-        // this is just for testing and will be replaced with a more general solution
-        Triangle tri = new Triangle(new Vertex[] {
-            new Vertex(new float[] {0, 0, -1, 1}),
-            new Vertex(new float[] {1, 1, -1, 1}),
-            new Vertex(new float[] {0, 1, -1, 1})
-        }, Color.RED);
-        
+        // Draw Triangles
+        for (Triangle tri : objectMesh.triangles) {
 
+            Triangle worldSpace = tri;
+            worldSpace = worldSpace.add(objectMesh.position);
+
+            // Get Normal
+            Vector3D line1 = worldSpace.v[1].subtract(worldSpace.v[0]);
+            Vector3D line2 = worldSpace.v[2].subtract(worldSpace.v[0]);
+            Vector3D normal = line1.cross(line2).normalize();
+
+            worldSpace = worldSpace.subtract(camera.position);
+            worldSpace = worldSpace.multiply(camera.rotationMatrix());
+
+            if (
+                normal.x * (worldSpace.v[0].x - camera.position.x) +
+                normal.y * (worldSpace.v[0].y - camera.position.y) +
+                normal.z * (worldSpace.v[0].z - camera.position.z) < 0
+            ) {
+                Vector3D lightDirection = camera.position.subtract(worldSpace.v[0]).normalize();
+
+                float dp = Math.max(0.1f, normal.dot(lightDirection));
+                
+                for (int i = 0; i < 3; i++) {
+                    worldSpace.v[i] = worldSpace.v[i].multiply(camera.perspectiveProjectionMatrix);
+                    worldSpace.v[i] = worldSpace.v[i].divide(worldSpace.v[i].w);
+                }
+                
+                worldSpace = camera.scale(worldSpace);
+                
+                worldSpace.color = new Color((int) (255 * dp), (int) (255 * dp), (int) (255 * dp));
+                
+                screen.fillTriangleWithDepth(worldSpace, depthBuffer, updated);
+            }
+        }
+        screen.clear(needsBlackening, updated);
+        screen.repaint();
+        return updated;
+    }
+
+    public GraphicsEngine() {
+        objectMesh = new Mesh(new File("VideoShip.obj"));
+        objectMesh.position = new Vector3D(0, 0, -100);
+
+
+        // Main camera
+        camera = new Camera(new Vector3D(0, 0, 0), new Quaternion(1,0,0,0), screen.height, screen.width, 90, 1000, 0.1f);
+        
         // Thread for updating the screen
-        Thread update = new Thread(() -> {
-            long lastFrameTime = System.nanoTime();
-            int frameCount = 0;
+        updateThread = new Thread(() -> {
+            System.out.println("Graphics Engine Running");
+            long frames = 0;
+            long lastFrameCheck = System.nanoTime();
+            long lastTime = System.nanoTime();
+            boolean[][] needsBlackening = new boolean[screen.width][screen.height];
             while (true) {
-                // Calculate FPS
-                long currentTime = System.nanoTime();
-                frameCount++;
-                if (currentTime - lastFrameTime >= 1_000_000_000) {
-                    fpsLabel.setText("FPS: " + frameCount);
-                    frameCount = 0;
-                    lastFrameTime = currentTime;
+                frames++;
+                long now = System.nanoTime();
+                if (now - lastFrameCheck >= 1000000000) {
+                    screen.setFPS(frames);
+                    frames = 0;
+                    lastFrameCheck = now;
                 }
-
-                //clear the image
-                // needs heavy optimization
-                // at 800 by 600
-                // fps goes from 200_000 to 150
-                // using the built in clearRect is 7000 fps, but causes screen tearing
-                //        vsync doesnt seem to fix this, it still has screen tearing when repainting at 1 fps
-                // the individual setRGB also causes some form of clipping on the top of the screen
-                // increasing the size of the screen to 1000 by 900 causes the fps to drop to 60-70
-                
-                for (int j = 0; j < screenHeight; j++) {
-                    for (int i = 0; i < screenWidth; i++) {
-                        image.setRGB(i, j, Color.BLACK.getRGB());
-                    }
-                }
-                // image.getGraphics().clearRect(0, 0, screenHeight, screenWidth);
-
-
-
-                //translation matrix
-                float[][] translationMatrix = {
-                    {1, 0, 0, -camera.position[0]},
-                    {0, 1, 0, -camera.position[1]},
-                    {0, 0, 1, -camera.position[2]},
-                    {0, 0, 0, 1}
-                };
-
-                //rotation matrix (quaternion)
-                // potential omptimization: only calculate the sin and cos of the rotation angles once, maybe in the camera class
-                // furthermore, only calculate the rotation matrix when the camera rotation changes, by storing in the camera class
-                float[][] rotationMatrix = {
-                    {1 - 2 * camera.rotation[2] * camera.rotation[2] - 2 * camera.rotation[3] * camera.rotation[3], 2 * camera.rotation[1] * camera.rotation[2] - 2 * camera.rotation[0] * camera.rotation[3], 2 * camera.rotation[1] * camera.rotation[3] + 2 * camera.rotation[0] * camera.rotation[2], 0},
-                    {2 * camera.rotation[1] * camera.rotation[2] + 2 * camera.rotation[0] * camera.rotation[3], 1 - 2 * camera.rotation[1] * camera.rotation[1] - 2 * camera.rotation[3] * camera.rotation[3], 2 * camera.rotation[2] * camera.rotation[3] - 2 * camera.rotation[0] * camera.rotation[1], 0},
-                    {2 * camera.rotation[1] * camera.rotation[3] - 2 * camera.rotation[0] * camera.rotation[2], 2 * camera.rotation[2] * camera.rotation[3] + 2 * camera.rotation[0] * camera.rotation[1], 1 - 2 * camera.rotation[1] * camera.rotation[1] - 2 * camera.rotation[2] * camera.rotation[2], 0},
-                    {0, 0, 0, 1}
-                };
-
-                
-                //perspective projection matrix
-                // potential optimization: only calculate the tan of the fov once
-                // additionally im not confident that this is the correct way to calculate the perspective projection matrix
-                // there are multiple ways varying slightly in the values of the matrix
-                // for example, the 3rd row could be {0, 0, (far+near)/(far - near), -far * near/(far - near)}
-                // and the 4th row could be {0, 0, 1, 0}
-                // this would make the z axis increase as it moves away from the camera
-                // and i have no idea what the multiplication by 2 is for
-
-                //but this does seem to work
-                float near = 0.1f;
-                float far = 100f;
-                float[][] perspectiveProjectionMatrix = {
-                    {camera.aspectRatio * ((float)Math.tan(camera.fov/2)), 0, 0, 0},
-                    {0, 1/((float)Math.tan(camera.fov/2)), 0, 0},
-                    {0, 0, -(far+near)/(far - near), -2*far * near/(far - near)},
-                    {0, 0, -1, 0}
-                };
-                
-                //multiply the matrices
-                // can be optimized by multiplying the matrices by hand once and hardcoding the cells (maybe an improvement?)
-                float[][] transformationMatrix = MatrixMath.multiplyMatrices(perspectiveProjectionMatrix, rotationMatrix);
-                float[][] fullMatrix = MatrixMath.multiplyMatrices(transformationMatrix, translationMatrix);
-
-                // get the screen space of the triangle based on this transformation matrix
-                float[][] result = tri.screenSpace(fullMatrix, camera);
-
-
-                // draw a crosshair in the center of the screen (just a white pixel)
-                image.setRGB(camera.width / 2, camera.height / 2, Color.WHITE.getRGB());
-
-
-
-                Graphics g = image.getGraphics();
-                // dont draw if the triangle is behind the camera
-                // this needs significant improvement as it doesnt properly check if the triangle is behind the camera
-                // it could be done before the transformation matrix is calculated
-                // it also only applies to the one triangle, not a general solution
-                if (result[0][2] > 0 && result[1][2] > 0 && result[2][2] > 0) {
-                    g.setColor(tri.color);
-                    g.fillPolygon(new int[] {(int) result[0][0], (int) result[1][0], (int) result[2][0]}, new int[] {(int) result[0][1], (int) result[1][1], (int) result[2][1]}, 3);
-                }
-                panel.repaint();
+                needsBlackening = update((float) ((now - lastTime) / 1000000000.0), needsBlackening);
+                lastTime = now;
             }
         });
 
-        update.start();
+        System.out.println("Graphics Engine Initialized");
+    }
+
+    public static void start() {
+        updateThread.start();
+        
+        System.out.println("Graphics Engine Started");
+    }
+
+    public static void main(String[] args) {
+        @SuppressWarnings("unused")
+        GraphicsEngine engine = new GraphicsEngine();
+        start();
     }
 }
